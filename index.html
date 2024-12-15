@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Webcam Streamer</title>
+    <style>
+        /* Reset some default styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Apply a dark background and subtle font */
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Style the main heading */
+        h1 {
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Style the video element with rounded corners and shadow */
+        video {
+            border: 2px solid #1f1f1f;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            margin-bottom: 20px;
+            background-color: #000;
+        }
+
+        /* Container for buttons */
+        .button-container {
+            display: flex;
+            gap: 15px;
+        }
+
+        /* Style the buttons */
+        button {
+            background-color: #1f1f1f;
+            color: #e0e0e0;
+            border: none;
+            padding: 12px 24px;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Hover effect for buttons */
+        button:hover {
+            background-color: #333333;
+            transform: translateY(-2px);
+        }
+
+        /* Active (pressed) effect for buttons */
+        button:active {
+            background-color: #444444;
+            transform: translateY(0);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Responsive design adjustments */
+        @media (max-width: 700px) {
+            video {
+                width: 100%;
+                height: auto;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 0.9em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Webcam Streamer</h1>
+    <!-- Added aria-label to describe the video content -->
+    <video id="video" width="640" height="480" autoplay aria-label="Live webcam feed"></video>
+    <div class="button-container">
+        <!-- Added aria-labels to describe the buttons' functions -->
+        <button id="startStreamingButton" aria-label="Start Streaming">Start Streaming</button>
+        <button id="stopStreamingButton" aria-label="Stop Streaming">Stop Streaming</button>
+    </div>
+
+    <script>
+        const video = document.getElementById('video');
+        const startButton = document.getElementById('startStreamingButton');
+        const stopButton = document.getElementById('stopStreamingButton');
+        let streaming = false;
+        let streamingInterval = null;
+
+        // **New: Define Lower Resolution Dimensions**
+        const CAPTURE_WIDTH = 160;  // Reduced width (e.g., 160 pixels)
+        const CAPTURE_HEIGHT = 120; // Reduced height (e.g., 120 pixels)
+
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+            .then(stream => {
+                video.srcObject = stream;
+                video.play();
+            })
+            .catch(err => {
+                console.error("Error accessing webcam:", err);
+            });
+
+        // Function to capture frame as Blob and send via FormData
+        function captureFrameAndSend() {
+            const canvas = document.createElement('canvas');
+            // **Set Canvas to Lower Resolution**
+            canvas.width = CAPTURE_WIDTH;
+            canvas.height = CAPTURE_HEIGHT;
+            const context = canvas.getContext('2d');
+            
+            // Draw the video frame onto the canvas with the desired lower resolution
+            context.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+            
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const formData = new FormData();
+                    formData.append('image', blob, 'frame.png'); // Use 'frame.jpg' if switching to JPEG
+
+                    fetch('/upload_frame', {
+                        method: 'POST',
+                        body: formData
+                    }).catch(err => {
+                        console.error("Error sending frame:", err);
+                    });
+                } else {
+                    console.error("Failed to capture frame as Blob.");
+                }
+            }, 'image/png'); // Change to 'image/jpeg' if switching to JPEG
+        }
+
+        // Start streaming
+        startButton.addEventListener('click', () => {
+            if (!streaming) {
+                streaming = true;
+                streamingInterval = setInterval(captureFrameAndSend, 50); // ~20 FPS
+                fetch('/start_stream', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data.status);
+                    })
+                    .catch(err => {
+                        console.error("Error starting stream:", err);
+                    });
+            }
+        });
+
+        // Stop streaming
+        stopButton.addEventListener('click', () => {
+            if (streaming) {
+                streaming = false;
+                clearInterval(streamingInterval);
+                fetch('/stop_stream', { method: 'POST' })
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log(data.status);
+                    })
+                    .catch(err => {
+                        console.error("Error stopping stream:", err);
+                    });
+            }
+        });
+    </script>
+</body>
+</html>
