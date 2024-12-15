@@ -10,5 +10,6 @@ app.py --> This is the server side logic for sending our image frames to our ser
 
 templates/index.html --> This is the html for the browser side for the mobile and web app. User will click "start streaming" and it will stream from their camera 20 FPS raw image data and send these images to the server side logic to process. 
 
-
 Server.py --> This is the websockets "receiver" where images are processed and the logic for depth perception calculations and depth map is done by using a deep learning model for depth perception that we preprocessed and changed and fine tuned the model.
+
+Everything was done from scracth, nothing was prepared before this hackathon, and our code all runs.
